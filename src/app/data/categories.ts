@@ -8,7 +8,7 @@ export interface Category {
 export const categories: Category[] = [
   { id: 1, name: "Thrown", description: "Clay has been shaped on the wheel", icon: "🏺" },
   { id: 2, name: "Trimmed", description: "Trimmed excess clay and refined shape", icon: "✂️" },
-  { id: 3, name: "Decorated", description: "Added handles or other decorations", icon: "🛠️" },
+  { id: 3, name: "Deco'd", description: "Added handles or other decorations", icon: "🛠️" },
   { id: 4, name: "Sanded", description: "Sanded for the first time as greenware", icon: "🪵" },
   { id: 5, name: "Painted", description: "Applied colors or underglaze", icon: "🖌️" },
   { id: 6, name: "Bisque Firing", description: "Away at the kiln for first firing", icon: "🏭🔥" },

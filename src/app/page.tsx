@@ -30,9 +30,17 @@ export default function HomePage() {
       <Header title="Mud Goods" showHome={false} />
 
       <div className="p-4 grid grid-cols-2 gap-4">
-        {categories.map((cat) => (
-          <CategoryCard key={cat.id} category={cat} onClick={handleCategoryClick} />
-        ))}
+        {categories.map((cat) => {
+          const count = pots.filter((pot) => pot.categoryId === cat.id).length;
+          return (
+            <CategoryCard
+              key={cat.id}
+              category={cat}
+              onClick={handleCategoryClick}
+              count={count}
+            />
+          );
+        })}
       </div>
 
       <AddPotButton onPotAdded={loadPots} />
