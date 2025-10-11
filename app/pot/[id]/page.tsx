@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState, use } from "react";
-import { Pot, getPotById } from "../../lib/db";
-import { categories } from "../../data/categories";
-import PotActionButtons from "../../components/PotActionButtons";
+import Image from "next/image";
+import { use, useCallback, useEffect, useRef, useState } from "react";
 import Header from "../../components/Header";
+import PotActionButtons from "../../components/PotActionButtons";
+import { categories } from "../../data/categories";
+import { Pot, getPotById } from "../../lib/db";
 
 export default function PotDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const unwrappedParams = use(params);
@@ -14,30 +15,32 @@ export default function PotDetailPage({ params }: { params: Promise<{ id: string
     const [mainPhotoIndex, setMainPhotoIndex] = useState<number>(0);
     const [photoURLs, setPhotoURLs] = useState<string[]>([]);
 
-    async function loadPot() {
-        const found = await getPotById(potId);
-        if (!found) {
-            setPot(null);
-            setPhotoURLs([]);
-            return;
-        }
+    const photoURLsRef = useRef<string[]>([]);
 
-        setPot(found);
-        setMainPhotoIndex(found.photos.length > 0 ? found.photos.length - 1 : 0);
-
-        photoURLs.forEach(url => URL.revokeObjectURL(url));
-
-        const urls = found.photos.map(p => URL.createObjectURL(p.photo));
-
-        setPhotoURLs(urls);
+const loadPot = useCallback(async () => {
+    const found = await getPotById(potId);
+    if (!found) {
+        setPot(null);
+        setPhotoURLs([]);
+        return;
     }
 
-    useEffect(() => {
-        loadPot();
-        return () => {
-            photoURLs.forEach(url => URL.revokeObjectURL(url));
-        };
-    }, []);
+    photoURLsRef.current.forEach(url => URL.revokeObjectURL(url));
+
+    const urls = found.photos.map(p => URL.createObjectURL(p.photo));
+    photoURLsRef.current = urls;
+
+    setPot(found);
+    setMainPhotoIndex(found.photos.length > 0 ? found.photos.length - 1 : 0);
+    setPhotoURLs(urls);
+}, [potId]);
+
+useEffect(() => {
+    loadPot();
+    return () => {
+        photoURLsRef.current.forEach(url => URL.revokeObjectURL(url));
+    };
+}, [loadPot]);
 
     if (!pot) return <p className="p-4">Pot not found</p>;
 
@@ -54,11 +57,15 @@ export default function PotDetailPage({ params }: { params: Promise<{ id: string
                     {category ? `Stage: ${category.icon} ${category.name}` : ""}
                 </h1>
 
-                <div className="mb-4 w-full h-64 border rounded-lg flex items-center justify-center">
-                    <img
+                <div className="mb-4 w-full h-64 border rounded-lg flex items-center justify-center relative">
+                    <Image
                         src={currentPhotoURL}
                         alt={pot.title}
-                        className="max-w-full max-h-full object-contain rounded-lg"
+                        fill
+                        style={{ objectFit: "contain" }}
+                        className="rounded-lg"
+                        unoptimized
+                        priority
                     />
                 </div>
 
@@ -69,14 +76,16 @@ export default function PotDetailPage({ params }: { params: Promise<{ id: string
                         {photoURLs.map((url, index) => (
                             <div
                                 key={index}
-                                className={`w-full h-24 border-2 rounded cursor-pointer overflow-hidden flex items-center justify-center ${index === mainPhotoIndex ? "border-red-500" : "border-transparent"
+                                className={`w-full h-24 border-2 rounded cursor-pointer overflow-hidden relative flex items-center justify-center ${index === mainPhotoIndex ? "border-red-500" : "border-transparent"
                                     }`}
                                 onClick={() => setMainPhotoIndex(index)}
                             >
-                                <img
+                                <Image
                                     src={url}
                                     alt={`${pot.title} - ${index + 1}`}
-                                    className="max-w-full max-h-full object-contain"
+                                    fill
+                                    style={{ objectFit: "contain" }}
+                                    unoptimized
                                 />
                             </div>
                         ))}

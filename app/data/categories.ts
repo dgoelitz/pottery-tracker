@@ -20,5 +20,6 @@ export const categories: Category[] = [
   { id: 12, name: "Tested", description: "Passed thermal shock and leak tests", icon: "🧪" },
   { id: 13, name: "Finished", description: "Complete and ready to be sold", icon: "✅" },
   { id: 14, name: "Sold", description: "Pottery that has been purchased", icon: "💰" },
-  { id: 15, name: "Broken", description: "Pottery that was damaged or discarded or any pot that has been deleted", icon: "💔" },
+  { id: 15, name: "Shipped", description: "Pot has been shipped to the customer!", icon: "📦" },
+  { id: 16, name: "Broken", description: "Pottery that was damaged or discarded or any pot that has been deleted", icon: "💔" },
 ];
