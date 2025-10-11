@@ -2,7 +2,7 @@ import { openDB } from "idb";
 
 export interface PotPhoto {
     stepId: number;
-    photo: ArrayBuffer;
+    photo: Blob;
     createdAt: number;
 }
 
@@ -68,8 +68,6 @@ export async function addPhotoToPot(potId: number, photoBlob: Blob): Promise<voi
     const pot = await db.get(STORE_NAME, potId);
     if (!pot) return;
 
-    const arrayBuffer = await photoBlob.arrayBuffer();
-
     const nextStepId =
         pot.photos.length > 0
             ? Math.max(...pot.photos.map((p: { stepId: number }) => p.stepId)) + 1
@@ -77,7 +75,7 @@ export async function addPhotoToPot(potId: number, photoBlob: Blob): Promise<voi
 
     pot.photos.push({
         stepId: nextStepId,
-        photo: arrayBuffer,
+        photo: photoBlob,
         createdAt: Date.now(),
     });
 
