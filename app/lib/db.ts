@@ -63,6 +63,15 @@ export async function updatePotCategory(potId: number, newCategoryId: number): P
     await db.put(STORE_NAME, updatedPot);
 }
 
+export async function updatePotTitle(potId: number, newTitle: string): Promise<void> {
+    const db = await getDB();
+    const pot = await db.get(STORE_NAME, potId);
+    if (!pot) return;
+
+    const updatedPot = { ...pot, title: newTitle };
+    await db.put(STORE_NAME, updatedPot);
+}
+
 export async function addPhotoToPot(potId: number, photoBlob: Blob): Promise<void> {
     const db = await getDB();
     const pot = await db.get(STORE_NAME, potId);

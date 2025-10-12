@@ -50,7 +50,7 @@ useEffect(() => {
 
     return (
         <div>
-            <Header title={pot.title} />
+            <Header title={pot.title} potId={potId} />
 
             <div className="p-4">
                 <h1 className="text-2xl font-bold mb-2">
