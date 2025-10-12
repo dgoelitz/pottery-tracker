@@ -1,7 +1,8 @@
 "use client";
 
 import { categories } from "../data/categories";
-import { Pot, updatePotCategory, addPhotoToPot } from "../lib/db";
+import { useRouter } from "next/navigation";
+import { Pot, updatePotCategory, addPhotoToPot, deletePot } from "../lib/db";
 
 interface PotActionButtonsProps {
   pot: Pot;
@@ -10,6 +11,7 @@ interface PotActionButtonsProps {
 }
 
 export default function PotActionButtons({ pot, setPot, reloadPot }: PotActionButtonsProps) {
+  const router = useRouter();
   const category = categories.find(c => c.id === pot.categoryId);
   const nextCategory = category ? categories.find(c => c.id === category.id + 1) : null;
   const prevCategory = category ? categories.find(c => c.id === category.id - 1) : null;
@@ -44,6 +46,13 @@ export default function PotActionButtons({ pot, setPot, reloadPot }: PotActionBu
     setPot({ ...pot, categoryId: thrownCat.id });
   };
 
+  const handleDeletePermanent = async () => {
+    const confirmed = window.confirm("⚠️ Are you sure you want to delete this pot permanently?");
+    if (!confirmed) return;
+    await deletePot(pot.id);
+    router.push("/");
+  };
+
   const handleAttachPhoto = () => {
     const input = document.createElement("input");
     input.type = "file";
@@ -66,7 +75,7 @@ export default function PotActionButtons({ pot, setPot, reloadPot }: PotActionBu
         {isBroken && (
           <button
             onClick={handleUndoBroken}
-            className="w-1/2 h-20 bg-yellow-400 text-white px-4 py-2 rounded text-sm items-center"
+            className="w-2/2 h-20 bg-yellow-400 text-white px-4 py-2 rounded text-sm flex items-center justify-center gap-1"
           >
             <span>↩️</span>
             <span>Undo Discard</span>
@@ -75,16 +84,16 @@ export default function PotActionButtons({ pot, setPot, reloadPot }: PotActionBu
         {!isBroken && canDowngrade && prevCategory && (
           <button
             onClick={handleDowngrade}
-            className="w-1/2 h-20 bg-blue-400 text-white px-4 py-2 rounded text-sm items-center"
+            className="w-1/2 h-20 bg-blue-400 text-white px-4 py-2 rounded text-sm flex items-center justify-center gap-1"
           >
-            <span>↓</span><br />
+            <span>↓</span>
             <span>{prevCategory.name}</span>
           </button>
         )}
         {!isBroken && (
           <button
             onClick={handleMarkBroken}
-            className="w-1/2 h-20 bg-purple-500 text-white px-4 py-2 rounded text-sm items-center"
+            className="w-1/2 h-20 bg-purple-500 text-white px-4 py-2 rounded text-sm flex items-center justify-center gap-1"
           >
             <span>💔</span>
             <span>Broken</span>
@@ -96,7 +105,7 @@ export default function PotActionButtons({ pot, setPot, reloadPot }: PotActionBu
         {!isBroken && canUpgrade && (
           <button
             onClick={handleAttachPhoto}
-            className="w-1/2 h-20 bg-green-500 text-white px-4 py-2 rounded text-sm items-center"
+            className="w-1/2 h-20 bg-green-500 text-white px-4 py-2 rounded text-sm flex items-center justify-center gap-1"
           >
             <span>📸</span>
             <span>Add Photo</span>
@@ -105,10 +114,19 @@ export default function PotActionButtons({ pot, setPot, reloadPot }: PotActionBu
         {!isBroken && canUpgrade && nextCategory && (
           <button
             onClick={handleUpgrade}
-            className="w-1/2 h-20 bg-purple-500 text-white px-4 py-2 rounded text-sm items-center"
+            className="w-1/2 h-20 bg-purple-500 text-white px-4 py-2 rounded text-sm flex items-center justify-center gap-1"
           >
-            <span>↑</span><br />
+            <span>↑</span>
             <span>{nextCategory.name}</span>
+          </button>
+        )}
+        {isBroken && (
+          <button
+            onClick={handleDeletePermanent}
+            className="w-2/2 h-20 bg-red-600 text-white px-4 py-2 rounded text-sm flex items-center justify-center gap-1"
+          >
+            <span>⚠️</span>
+            <span>Delete</span>
           </button>
         )}
       </div>
