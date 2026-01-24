@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Home } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { Home, ChevronLeft, ChevronRight } from "lucide-react";
 import { useState } from "react";
 import { updatePotTitle } from "../lib/db";
 
@@ -14,6 +14,8 @@ type HeaderProps = {
 
 export default function Header({ title, potId, showHome = true }: HeaderProps) {
   const pathname = usePathname();
+  const router = useRouter();
+
   const [isEditing, setIsEditing] = useState(false);
   const [currentTitle, setCurrentTitle] = useState(title);
 
@@ -26,11 +28,26 @@ export default function Header({ title, potId, showHome = true }: HeaderProps) {
 
   return (
     <header className="flex items-center p-4 bg-gray-400 shadow-md">
+      <button
+        onClick={() => router.back()}
+        aria-label="Go back"
+      >
+        <ChevronLeft className="w-6 h-6 text-gray-700"/>
+      </button>
+
+      <button
+        onClick={() => router.forward()}
+        aria-label="Go forward"
+      >
+        <ChevronRight className="w-6 h-6 text-gray-700"/>
+      </button>
+
       {showHome && pathname !== "/" && (
         <Link href="/" className="mr-3 text-gray-700 hover:text-black">
           <Home className="w-6 h-6" />
         </Link>
       )}
+
       {potId ? (
         isEditing ? (
           <input
