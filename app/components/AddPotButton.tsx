@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { addPot, Pot, PotPhoto } from "../lib/db";
+import { Plus } from "lucide-react";
 import { categories } from "../data/categories";
+import { addPot, fileToPhotoDataUrl, Pot, PotPhoto } from "../lib/db";
 
 type AddPotButtonProps = {
   onPotAdded?: (pot: Pot) => void;
@@ -33,13 +34,11 @@ export default function AddPotButton({ onPotAdded }: AddPotButtonProps) {
         });
 
         if (file) {
-          const buffer = await file.arrayBuffer();
-          const blob = new Blob([buffer], { type: file.type });
-
           photos.push({
             stepId: 1,
-            photo: blob,
+            photoDataUrl: await fileToPhotoDataUrl(file),
             createdAt: Date.now(),
+            contentType: file.type,
           });
         }
       }
@@ -56,15 +55,16 @@ export default function AddPotButton({ onPotAdded }: AddPotButtonProps) {
         categoryId: categories[0].id,
         photos,
         createdAt: Date.now(),
+        updatedAt: Date.now(),
       };
 
-      await addPot(newPot);
-      onPotAdded?.(newPot);
+      const savedPot = await addPot(newPot);
+      onPotAdded?.(savedPot);
 
       alert(`Pot "${title}" added!`);
     } catch (error) {
       console.error("Error adding pot:", error);
-      alert("Something went wrong while adding the pot.");
+      alert(error instanceof Error ? error.message : "Something went wrong while adding the pot.");
     } finally {
       setLoading(false);
     }
@@ -74,9 +74,10 @@ export default function AddPotButton({ onPotAdded }: AddPotButtonProps) {
     <button
       onClick={handleAddPot}
       disabled={loading}
-      className="fixed bottom-6 right-6 bg-red-500 text-white p-4 rounded-full shadow-lg text-2xl hover:bg-red-600 disabled:opacity-60"
+      className="fixed bottom-6 right-6 grid h-14 w-14 place-items-center rounded-full bg-red-500 text-white shadow-lg transition hover:bg-red-600 disabled:opacity-60 sm:bottom-8 sm:right-8 2xl:right-[calc((100vw-72rem)/2+2rem)]"
+      aria-label="Add pot"
     >
-      {loading ? "…" : "+"}
+      {loading ? "..." : <Plus className="h-7 w-7" aria-hidden="true" />}
     </button>
   );
 }

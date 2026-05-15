@@ -1,44 +1,32 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo } from "react";
-import { Pot } from "./../lib/db";
+import { Pot } from "../lib/db";
 
 interface PotCardProps {
-    pot: Pot;
-    onClick?: () => void;
+  pot: Pot;
+  onClick?: () => void;
 }
 
 export default function PotCard({ pot, onClick }: PotCardProps) {
-    const latestPhotoURL = useMemo(() => {
-        if (pot.photos.length === 0) return "/placeholder.jpg";
-        const blob = new Blob([pot.photos[pot.photos.length - 1].photo]);
-        return URL.createObjectURL(blob);
-    }, [pot.photos]);
+  const latestPhotoURL = pot.photos.at(-1)?.photoDataUrl || "/placeholder.jpg";
 
-    useEffect(() => {
-        return () => {
-            if (latestPhotoURL && latestPhotoURL !== "/placeholder.jpg") {
-                URL.revokeObjectURL(latestPhotoURL);
-            }
-        };
-    }, [latestPhotoURL]);
-
-    return (
-        <div
-            onClick={onClick}
-            className="border rounded-lg overflow-hidden cursor-pointer hover:shadow-md"
-        >
-            <div className="relative w-full h-32">
-                <Image
-                    src={latestPhotoURL}
-                    alt={pot.title}
-                    fill
-                    style={{ objectFit: "cover" }}
-                    unoptimized
-                />
-            </div>
-            <div className="p-2 text-center font-semibold">{pot.title}</div>
-        </div>
-    );
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="w-full overflow-hidden rounded-lg border bg-white text-left shadow-sm transition hover:shadow-md sm:rounded-md sm:hover:-translate-y-0.5"
+    >
+      <div className="relative h-32 w-full bg-stone-100 sm:h-40">
+        <Image
+          src={latestPhotoURL}
+          alt={pot.title}
+          fill
+          style={{ objectFit: "cover" }}
+          unoptimized
+        />
+      </div>
+      <div className="truncate p-2 text-center font-semibold text-stone-900 sm:p-3">{pot.title}</div>
+    </button>
+  );
 }

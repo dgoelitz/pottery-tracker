@@ -1,36 +1,49 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+This is a Next.js pottery tracker for following pieces through studio stages.
 
 ## Getting Started
 
-First, run the development server:
+Install dependencies and run the development server:
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+`npm run dev` only binds to your local machine. Use `npm run dev:lan` when you intentionally want to test from a phone on the same network.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Shared Storage
 
-## Learn More
+The app now reads and writes through Next API routes. In development, if Azure settings are not present, records are stored in `.data/pottery-store.json`.
 
-To learn more about Next.js, take a look at the following resources:
+Before hosting it publicly, set these server-only environment variables in the deployed app:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+POTTERY_APP_PASSWORD=<a password only you two know>
+POTTERY_AUTH_SECRET=<a long random secret>
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Generate `POTTERY_AUTH_SECRET` with something like `openssl rand -base64 32`. Do not prefix these or the Azure variables with `NEXT_PUBLIC_`; that would expose them to the browser. In production, the app locks itself if the password settings are missing. In local development, auth is optional unless those password variables are set.
 
-## Deploy on Vercel
+To sync the same records between phone and desktop, create an Azure Cosmos DB for NoSQL account and add these server-only variables:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+AZURE_COSMOS_ENDPOINT=https://<account>.documents.azure.com:443/
+AZURE_COSMOS_KEY=<primary-or-secondary-key>
+AZURE_COSMOS_DATABASE_ID=pottery-tracker
+AZURE_COSMOS_CONTAINER_ID=pots
+```
+
+Use a manual throughput container at 400 RU/s to stay under the Cosmos DB free-tier allowance for this app's expected scale. The first time an existing browser opens the updated app, old IndexedDB records are copied into the shared API store if matching pot IDs are not already there.
+
+Photos are resized in the browser before upload so a single photo document stays comfortably below the Cosmos DB item limit.
+
+## Checks
+
+```bash
+npm run lint
+npm run build
+```
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
