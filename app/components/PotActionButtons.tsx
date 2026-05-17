@@ -68,7 +68,7 @@ export default function PotActionButtons({ pot, setPot, reloadPot, returnPath }:
     if (!confirmed) return;
     await runAction(async () => {
       await deletePot(pot.id);
-      router.push(returnPath || `/category/${pot.categoryId}`);
+      router.replace(returnPath || `/category/${pot.categoryId}`);
     });
   };
 
