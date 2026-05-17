@@ -49,7 +49,7 @@ export default function CategoryPage({ params }: { params: Promise<{ id: string 
             <PotCard
               key={pot.id}
               pot={pot}
-              onClick={() => router.push(`/pot/${pot.id}`)}
+              onClick={() => router.push(`/pot/${pot.id}?returnTo=${encodeURIComponent(`/category/${categoryId}`)}`)}
             />
           ))}
         </div>

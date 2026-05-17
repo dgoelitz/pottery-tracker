@@ -7,9 +7,17 @@ import PotActionButtons from "../../components/PotActionButtons";
 import { categories } from "../../data/categories";
 import { Pot, getPotById } from "../../lib/db";
 
-export default function PotDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default function PotDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ returnTo?: string }>;
+}) {
   const unwrappedParams = use(params);
+  const unwrappedSearchParams = use(searchParams);
   const potId = Number(unwrappedParams.id);
+  const returnPath = sanitizeReturnPath(unwrappedSearchParams.returnTo);
 
   const [pot, setPot] = useState<Pot | null>(null);
   const [mainPhotoIndex, setMainPhotoIndex] = useState<number>(0);
@@ -100,10 +108,17 @@ export default function PotDetailPage({ params }: { params: Promise<{ id: string
           </div>
 
           <aside className="mt-4 lg:mt-0">
-            <PotActionButtons pot={pot} setPot={setPot} reloadPot={loadPot} />
+            <PotActionButtons pot={pot} setPot={setPot} reloadPot={loadPot} returnPath={returnPath} />
           </aside>
         </div>
       </main>
     </div>
   );
+}
+
+function sanitizeReturnPath(returnTo: string | undefined) {
+  if (!returnTo) return undefined;
+  if (!returnTo.startsWith("/") || returnTo.startsWith("//")) return undefined;
+
+  return returnTo;
 }

@@ -41,10 +41,24 @@ export async function readJsonBody<T>(
 
 export function assertSameOrigin(request: NextRequest) {
   const origin = request.headers.get("origin");
+  if (!origin) return;
 
-  if (origin && origin !== request.nextUrl.origin) {
+  if (!allowedOrigins(request).has(origin)) {
     throw new HttpError(403, "Cross-origin requests are not allowed.");
   }
+}
+
+function allowedOrigins(request: NextRequest): Set<string> {
+  const protocol =
+    request.headers.get("x-forwarded-proto") ||
+    request.nextUrl.protocol.replace(":", "") ||
+    "http";
+  const host = request.headers.get("x-forwarded-host") || request.headers.get("host");
+
+  return new Set([
+    request.nextUrl.origin,
+    host ? `${protocol}://${host}` : "",
+  ].filter(Boolean));
 }
 
 export function noStoreJson(body: unknown, init?: ResponseInit) {

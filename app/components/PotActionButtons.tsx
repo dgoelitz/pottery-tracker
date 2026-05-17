@@ -10,12 +10,13 @@ interface PotActionButtonsProps {
   pot: Pot;
   setPot: React.Dispatch<React.SetStateAction<Pot | null>>;
   reloadPot: () => Promise<void>;
+  returnPath?: string;
 }
 
 const actionButtonClass =
   "flex h-20 items-center justify-center gap-1 rounded px-3 py-2 text-sm font-semibold text-white transition disabled:opacity-60 sm:w-full";
 
-export default function PotActionButtons({ pot, setPot, reloadPot }: PotActionButtonsProps) {
+export default function PotActionButtons({ pot, setPot, reloadPot, returnPath }: PotActionButtonsProps) {
   const router = useRouter();
   const [isWorking, setIsWorking] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -67,7 +68,7 @@ export default function PotActionButtons({ pot, setPot, reloadPot }: PotActionBu
     if (!confirmed) return;
     await runAction(async () => {
       await deletePot(pot.id);
-      router.push("/");
+      router.push(returnPath || `/category/${pot.categoryId}`);
     });
   };
 
