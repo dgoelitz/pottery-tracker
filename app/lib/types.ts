@@ -10,6 +10,7 @@ export interface Pot {
   title: string;
   categoryId: number;
   photos: PotPhoto[];
+  thumbnailDataUrl?: string;
   createdAt: number;
   updatedAt: number;
 }

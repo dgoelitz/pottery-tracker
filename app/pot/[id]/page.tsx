@@ -1,11 +1,10 @@
 "use client";
 
-import Image from "next/image";
 import { use, useCallback, useEffect, useState } from "react";
 import Header from "../../components/Header";
 import PotActionButtons from "../../components/PotActionButtons";
 import { categories } from "../../data/categories";
-import { Pot, getPotById } from "../../lib/db";
+import { Pot, getCachedPotById, getPotById, getPotByIdWithPhotos } from "../../lib/db";
 
 export default function PotDetailPage({
   params,
@@ -19,33 +18,48 @@ export default function PotDetailPage({
   const potId = Number(unwrappedParams.id);
   const returnPath = sanitizeReturnPath(unwrappedSearchParams.returnTo);
 
-  const [pot, setPot] = useState<Pot | null>(null);
+  const [pot, setPot] = useState<Pot | null>(() => getCachedPotById(potId) || null);
+  const [isLoading, setIsLoading] = useState(!pot);
   const [mainPhotoIndex, setMainPhotoIndex] = useState<number>(0);
 
   const loadPot = useCallback(async () => {
+    setIsLoading(true);
     const found = await getPotById(potId);
     if (!found) {
       setPot(null);
+      setIsLoading(false);
       return;
     }
 
     setPot(found);
     setMainPhotoIndex(found.photos.length > 0 ? found.photos.length - 1 : 0);
+    setIsLoading(false);
   }, [potId]);
 
   useEffect(() => {
     let isMounted = true;
 
-    void getPotById(potId).then((found) => {
+    void getPotByIdWithPhotos(potId, "latest").then((found) => {
       if (!isMounted) return;
 
       if (!found) {
         setPot(null);
+        setIsLoading(false);
         return;
       }
 
       setPot(found);
       setMainPhotoIndex(found.photos.length > 0 ? found.photos.length - 1 : 0);
+      setIsLoading(false);
+
+      void getPotByIdWithPhotos(potId, "all").then((fullPot) => {
+        if (!isMounted || !fullPot) return;
+        setPot(fullPot);
+        setMainPhotoIndex(fullPot.photos.length > 0 ? fullPot.photos.length - 1 : 0);
+      });
+    }).catch((error) => {
+      console.error("Could not load pot.", error);
+      if (isMounted) setIsLoading(false);
     });
 
     return () => {
@@ -53,11 +67,12 @@ export default function PotDetailPage({
     };
   }, [potId]);
 
+  if (!pot && isLoading) return <p className="p-4">Loading pot...</p>;
   if (!pot) return <p className="p-4">Pot not found</p>;
 
   const category = categories.find((candidate) => candidate.id === pot.categoryId);
   const photoURLs = pot.photos.map((photo) => photo.photoDataUrl);
-  const currentPhotoURL = photoURLs.length > 0 ? photoURLs[mainPhotoIndex] : "/placeholder.jpg";
+  const currentPhotoURL = photoURLs.length > 0 ? photoURLs[mainPhotoIndex] : pot.thumbnailDataUrl || "/placeholder.jpg";
 
   return (
     <div>
@@ -71,14 +86,11 @@ export default function PotDetailPage({
         <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-6">
           <div>
             <div className="relative mb-4 flex h-64 w-full items-center justify-center rounded-lg border bg-white sm:h-[28rem]">
-              <Image
+              {/* eslint-disable-next-line @next/next/no-img-element -- Data URL images do not benefit from Next image optimization. */}
+              <img
                 src={currentPhotoURL}
                 alt={pot.title}
-                fill
-                style={{ objectFit: "contain" }}
-                className="rounded-lg"
-                unoptimized
-                priority
+                className="h-full w-full rounded-lg object-contain"
               />
             </div>
 
@@ -94,12 +106,11 @@ export default function PotDetailPage({
                     onClick={() => setMainPhotoIndex(index)}
                     aria-label={`Show photo ${index + 1}`}
                   >
-                    <Image
+                    {/* eslint-disable-next-line @next/next/no-img-element -- Data URL images do not benefit from Next image optimization. */}
+                    <img
                       src={url}
                       alt={`${pot.title} - ${index + 1}`}
-                      fill
-                      style={{ objectFit: "contain" }}
-                      unoptimized
+                      className="h-full w-full object-contain"
                     />
                   </button>
                 ))}

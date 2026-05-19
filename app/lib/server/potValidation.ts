@@ -3,6 +3,7 @@ import { Pot, PotPhoto } from "../types";
 import { HttpError } from "./api";
 
 export const MAX_PHOTO_DATA_URL_LENGTH = 1_800_000;
+export const MAX_THUMBNAIL_DATA_URL_LENGTH = 200_000;
 
 const MAX_TITLE_LENGTH = 120;
 const MAX_PHOTOS_PER_POT = 100;
@@ -37,6 +38,7 @@ export function validatePotInput(input: unknown): Pot {
     title: normalizeTitle(value.title),
     categoryId: validateCategoryId(value.categoryId),
     photos: photos.map(validatePhotoInput),
+    thumbnailDataUrl: validateOptionalThumbnailDataUrl(value.thumbnailDataUrl),
     createdAt: numberOrNow(value.createdAt, now),
     updatedAt: numberOrNow(value.updatedAt, now),
   };
@@ -62,16 +64,25 @@ export function validatePotPatch(input: unknown): Partial<Pick<Pot, "title" | "c
 }
 
 export function validatePhotoDataUrl(input: unknown): string {
+  return validateImageDataUrl(input, MAX_PHOTO_DATA_URL_LENGTH, "Photo");
+}
+
+export function validateOptionalThumbnailDataUrl(input: unknown): string | undefined {
+  if (input === undefined || input === null || input === "") return undefined;
+  return validateImageDataUrl(input, MAX_THUMBNAIL_DATA_URL_LENGTH, "Thumbnail");
+}
+
+function validateImageDataUrl(input: unknown, maxLength: number, label: string): string {
   if (typeof input !== "string") {
-    throw new HttpError(400, "Photo data must be a string.");
+    throw new HttpError(400, `${label} data must be a string.`);
   }
 
-  if (input.length > MAX_PHOTO_DATA_URL_LENGTH) {
-    throw new HttpError(413, "Photo is too large.");
+  if (input.length > maxLength) {
+    throw new HttpError(413, `${label} is too large.`);
   }
 
   if (!IMAGE_DATA_URL_PATTERN.test(input)) {
-    throw new HttpError(400, "Photo must be a JPEG, PNG, or WebP data URL.");
+    throw new HttpError(400, `${label} must be a JPEG, PNG, or WebP data URL.`);
   }
 
   return input;

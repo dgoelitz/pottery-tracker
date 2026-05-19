@@ -37,13 +37,21 @@ AZURE_COSMOS_CONTAINER_ID=pots
 
 Use a manual throughput container at 400 RU/s to stay under the Cosmos DB free-tier allowance for this app's expected scale. The first time an existing browser opens the updated app, old IndexedDB records are copied into the shared API store if matching pot IDs are not already there.
 
-Photos are resized in the browser before upload so a single photo document stays comfortably below the Cosmos DB item limit.
+Photos are resized in the browser before upload so a single photo document stays comfortably below the Cosmos DB item limit. The app also stores a small `thumbnailDataUrl` on each pot document so category pages do not need to read full photo documents.
+
+For existing Cosmos records, generate missing thumbnails from the latest photo with a dry run first:
+
+```bash
+npm run backfill:thumbnails
+npm run backfill:thumbnails -- --write
+```
 
 ## Checks
 
 ```bash
 npm run lint
+npm run typecheck
 npm run build
 ```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Check out the [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.

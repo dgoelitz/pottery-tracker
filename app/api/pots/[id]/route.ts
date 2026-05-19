@@ -6,9 +6,10 @@ import { parsePotId, validatePotPatch } from "../../../lib/server/potValidation"
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const pot = await getPotByRouteParam(params);
+    const photoMode = parsePhotoMode(request.nextUrl.searchParams.get("photos"));
+    const pot = await getPotByRouteParam(params, photoMode);
     if (!pot) return noStoreJson({ message: "Pot not found" }, { status: 404 });
 
     return noStoreJson(pot);
@@ -48,8 +49,13 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   }
 }
 
-async function getPotByRouteParam(params: Promise<{ id: string }>) {
+async function getPotByRouteParam(params: Promise<{ id: string }>, photoMode: "none" | "latest" | "all") {
   const { id } = await params;
   const store = await getPotStore();
-  return store.getPot(parsePotId(id));
+  return store.getPot(parsePotId(id), photoMode);
+}
+
+function parsePhotoMode(photoMode: string | null): "none" | "latest" | "all" {
+  if (photoMode === "none" || photoMode === "latest") return photoMode;
+  return "all";
 }

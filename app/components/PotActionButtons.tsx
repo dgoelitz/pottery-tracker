@@ -4,7 +4,7 @@ import { ArrowDown, ArrowUp, Camera, HeartCrack, RotateCcw, Trash2 } from "lucid
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { categories } from "../data/categories";
-import { addPhotoToPot, deletePot, fileToPhotoDataUrl, Pot, updatePotCategory } from "../lib/db";
+import { addPhotoToPot, deletePot, fileToPhotoDataUrls, Pot, updatePotCategory } from "../lib/db";
 
 interface PotActionButtonsProps {
   pot: Pot;
@@ -80,7 +80,8 @@ export default function PotActionButtons({ pot, setPot, reloadPot, returnPath }:
       if (input.files && input.files[0]) {
         const file = input.files[0];
         await runAction(async () => {
-          await addPhotoToPot(pot.id, await fileToPhotoDataUrl(file));
+          const photoData = await fileToPhotoDataUrls(file);
+          await addPhotoToPot(pot.id, photoData.photoDataUrl, photoData.thumbnailDataUrl);
           await reloadPot();
         });
       }

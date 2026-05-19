@@ -7,38 +7,57 @@ import CategoryCard from "./components/CategoryCard";
 import Header from "./components/Header";
 import { categories } from "./data/categories";
 import {
-  getAllPots,
   getLegacyImportStatus,
+  getPotSummary,
   importMissingLegacyPots,
   LegacyImportStatus,
-  Pot,
+  prefetchPotsByCategory,
+  PotSummary,
 } from "./lib/db";
+
+let cachedPotSummary: PotSummary[] = [];
+let cachedLegacyStatus: LegacyImportStatus = { localCount: 0, missingCount: 0 };
 
 export default function HomePage() {
   const router = useRouter();
-  const [pots, setPots] = useState<Pot[]>([]);
+  const [potSummary, setPotSummary] = useState<PotSummary[]>(cachedPotSummary);
   const [syncMessage, setSyncMessage] = useState<string>("");
-  const [legacyStatus, setLegacyStatus] = useState<LegacyImportStatus>({ localCount: 0, missingCount: 0 });
+  const [legacyStatus, setLegacyStatus] = useState<LegacyImportStatus>(cachedLegacyStatus);
   const [isImporting, setIsImporting] = useState(false);
+  const categoryCounts = getCategoryCounts(potSummary);
 
   const handleCategoryClick = (id: number) => {
     router.push(`/category/${id}`);
   };
 
-  const loadPots = useCallback(async () => {
-    const allPots = await getAllPots();
-    setLegacyStatus(await getLegacyImportStatus(allPots));
-    setPots(allPots);
-  }, []);
+  const handleCategoryPrefetch = (id: number) => {
+    prefetchPotsByCategory(id);
+    router.prefetch(`/category/${id}`);
+  };
+
+  const loadHomeData = useCallback(async () => {
+    const nextPotSummary = await getPotSummary();
+    const nextLegacyStatus = await getLegacyImportStatus(nextPotSummary);
+
+    cachedPotSummary = nextPotSummary;
+    cachedLegacyStatus = nextLegacyStatus;
+    setLegacyStatus(nextLegacyStatus);
+    setPotSummary(nextPotSummary);
+    prefetchNonEmptyCategories(nextPotSummary, router.prefetch);
+  }, [router.prefetch]);
 
   const handleImportLocalPots = async () => {
     try {
       setIsImporting(true);
-      const importedCount = await importMissingLegacyPots(pots);
-      const allPots = await getAllPots();
+      const importedCount = await importMissingLegacyPots(potSummary);
+      const nextPotSummary = await getPotSummary();
+      const nextLegacyStatus = await getLegacyImportStatus(nextPotSummary);
 
-      setPots(allPots);
-      setLegacyStatus(await getLegacyImportStatus(allPots));
+      cachedPotSummary = nextPotSummary;
+      cachedLegacyStatus = nextLegacyStatus;
+      setPotSummary(nextPotSummary);
+      setLegacyStatus(nextLegacyStatus);
+      prefetchNonEmptyCategories(nextPotSummary, router.prefetch);
       setSyncMessage(
         importedCount > 0
           ? `Imported ${importedCount} local ${importedCount === 1 ? "pot" : "pots"} into the current database.`
@@ -55,18 +74,21 @@ export default function HomePage() {
   useEffect(() => {
     let isMounted = true;
 
-    void getAllPots().then(async (allPots) => {
-      const nextLegacyStatus = await getLegacyImportStatus(allPots);
+    void getPotSummary().then(async (nextPotSummary) => {
+      const nextLegacyStatus = await getLegacyImportStatus(nextPotSummary);
       if (!isMounted) return;
 
+      cachedPotSummary = nextPotSummary;
+      cachedLegacyStatus = nextLegacyStatus;
       setLegacyStatus(nextLegacyStatus);
-      setPots(allPots);
+      setPotSummary(nextPotSummary);
+      prefetchNonEmptyCategories(nextPotSummary, router.prefetch);
     });
 
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [router.prefetch]);
 
   return (
     <div>
@@ -97,22 +119,42 @@ export default function HomePage() {
         )}
 
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-5 lg:grid-cols-4 xl:grid-cols-5">
-          {categories.map((category) => {
-            const count = pots.filter((pot) => pot.categoryId === category.id).length;
-
-            return (
-              <CategoryCard
-                key={category.id}
-                category={category}
-                onClick={handleCategoryClick}
-                count={count}
-              />
-            );
-          })}
+          {categories.map((category) => (
+            <CategoryCard
+              key={category.id}
+              category={category}
+              onClick={handleCategoryClick}
+              onPrefetch={handleCategoryPrefetch}
+              count={categoryCounts.get(category.id) || 0}
+            />
+          ))}
         </div>
       </main>
 
-      <AddPotButton onPotAdded={loadPots} />
+      <AddPotButton onPotAdded={loadHomeData} />
     </div>
   );
+}
+
+function getCategoryCounts(potSummary: PotSummary[]): Map<number, number> {
+  const counts = new Map<number, number>();
+
+  for (const pot of potSummary) {
+    counts.set(pot.categoryId, (counts.get(pot.categoryId) || 0) + 1);
+  }
+
+  return counts;
+}
+
+function prefetchNonEmptyCategories(potSummary: PotSummary[], prefetchRoute: (href: string) => void): void {
+  const counts = getCategoryCounts(potSummary);
+  const categoriesWithPots = categories
+    .map((category) => ({ category, count: counts.get(category.id) || 0 }))
+    .filter(({ count }) => count > 0)
+    .sort((left, right) => right.count - left.count);
+
+  for (const { category } of categoriesWithPots) {
+    prefetchPotsByCategory(category.id);
+    prefetchRoute(`/category/${category.id}`);
+  }
 }

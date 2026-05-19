@@ -20,13 +20,15 @@ interface StoreData {
 }
 
 type PhotoMode = "none" | "latest" | "all";
+type PotSummary = Pick<Pot, "id" | "categoryId">;
 
 interface PotStore {
   listPots(categoryId?: number, photoMode?: PhotoMode): Promise<Pot[]>;
-  getPot(id: number): Promise<Pot | undefined>;
+  listPotSummaries(): Promise<PotSummary[]>;
+  getPot(id: number, photoMode?: PhotoMode): Promise<Pot | undefined>;
   upsertPot(pot: Pot): Promise<Pot>;
   patchPot(id: number, changes: Partial<Pick<Pot, "title" | "categoryId">>): Promise<Pot | undefined>;
-  addPhotoToPot(id: number, photoDataUrl: string): Promise<Pot | undefined>;
+  addPhotoToPot(id: number, photoDataUrl: string, thumbnailDataUrl?: string): Promise<Pot | undefined>;
   deletePot(id: number): Promise<void>;
 }
 
@@ -79,6 +81,7 @@ function normalizePot(pot: Pot): Pot {
     id: Number(pot.id),
     title: pot.title.trim() || "Untitled pot",
     categoryId: Number(pot.categoryId),
+    thumbnailDataUrl: pot.thumbnailDataUrl,
     createdAt: Number(pot.createdAt) || now,
     updatedAt: Number(pot.updatedAt) || now,
     photos: [...(pot.photos || [])]
@@ -113,6 +116,7 @@ function potToDoc(pot: Pot): PotDoc {
     potId: pot.id,
     title: pot.title,
     categoryId: pot.categoryId,
+    thumbnailDataUrl: pot.thumbnailDataUrl,
     createdAt: pot.createdAt,
     updatedAt: pot.updatedAt,
   };
@@ -124,6 +128,7 @@ function docToPot(doc: PotDoc, photos: PotPhoto[]): Pot {
     title: doc.title,
     categoryId: doc.categoryId,
     photos: photos.sort((a, b) => a.stepId - b.stepId),
+    thumbnailDataUrl: doc.thumbnailDataUrl,
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt,
   };
@@ -156,21 +161,35 @@ class CosmosPotStore implements PotStore {
       .fetchAll();
 
     const photosByPot =
-      photoMode === "none"
-        ? new Map<number, PotPhoto[]>()
-        : await this.getPhotosByPotIds(
-            potDocs.map((doc) => doc.potId),
-            photoMode,
-          );
+      photoMode === "all"
+        ? await this.getPhotosByPotIds(potDocs.map((doc) => doc.potId))
+        : new Map<number, PotPhoto[]>();
 
     return potDocs.map((doc) => docToPot(doc, photosByPot.get(doc.potId) || []));
   }
 
-  async getPot(id: number): Promise<Pot | undefined> {
+  async listPotSummaries(): Promise<PotSummary[]> {
+    const { resources } = await this.container.items
+      .query<{ potId: number; categoryId: number }>(
+        {
+          query: "SELECT c.potId, c.categoryId FROM c WHERE c.type = @type",
+          parameters: [{ name: "@type", value: "pot" }],
+        },
+        { partitionKey: "pot" },
+      )
+      .fetchAll();
+
+    return resources.map((doc) => ({
+      id: doc.potId,
+      categoryId: doc.categoryId,
+    }));
+  }
+
+  async getPot(id: number, photoMode: PhotoMode = "all"): Promise<Pot | undefined> {
     const doc = await this.getPotDoc(id);
     if (!doc) return undefined;
 
-    return docToPot(doc, await this.getPhotosForPot(id));
+    return docToPot(doc, await this.getPhotosForPot(id, photoMode));
   }
 
   async upsertPot(pot: Pot): Promise<Pot> {
@@ -195,7 +214,7 @@ class CosmosPotStore implements PotStore {
     });
   }
 
-  async addPhotoToPot(id: number, photoDataUrl: string): Promise<Pot | undefined> {
+  async addPhotoToPot(id: number, photoDataUrl: string, thumbnailDataUrl?: string): Promise<Pot | undefined> {
     const existing = await this.getPot(id);
     if (!existing) return undefined;
 
@@ -204,6 +223,7 @@ class CosmosPotStore implements PotStore {
 
     const updated = await this.upsertPot({
       ...existing,
+      thumbnailDataUrl: thumbnailDataUrl || existing.thumbnailDataUrl,
       photos: [
         ...existing.photos,
         {
@@ -238,11 +258,16 @@ class CosmosPotStore implements PotStore {
     }
   }
 
-  private async getPhotosForPot(id: number): Promise<PotPhoto[]> {
+  private async getPhotosForPot(id: number, photoMode: PhotoMode = "all"): Promise<PotPhoto[]> {
+    if (photoMode === "none") return [];
+
     const { resources } = await this.container.items
       .query<PhotoDoc>(
         {
-          query: "SELECT * FROM c WHERE c.type = @type AND c.potId = @potId ORDER BY c.stepId ASC",
+          query:
+            photoMode === "latest"
+              ? "SELECT * FROM c WHERE c.type = @type AND c.potId = @potId ORDER BY c.stepId DESC OFFSET 0 LIMIT 1"
+              : "SELECT * FROM c WHERE c.type = @type AND c.potId = @potId ORDER BY c.stepId ASC",
           parameters: [
             { name: "@type", value: "photo" },
             { name: "@potId", value: id },
@@ -260,10 +285,7 @@ class CosmosPotStore implements PotStore {
     }));
   }
 
-  private async getPhotosByPotIds(
-    ids: number[],
-    photoMode: Exclude<PhotoMode, "none">,
-  ): Promise<Map<number, PotPhoto[]>> {
+  private async getPhotosByPotIds(ids: number[]): Promise<Map<number, PotPhoto[]>> {
     const grouped = new Map<number, PotPhoto[]>();
     if (ids.length === 0) return grouped;
 
@@ -287,12 +309,6 @@ class CosmosPotStore implements PotStore {
         contentType: photo.contentType,
       };
       const current = grouped.get(photo.potId) || [];
-
-      if (photoMode === "latest") {
-        const previous = current[0];
-        grouped.set(photo.potId, !previous || nextPhoto.stepId > previous.stepId ? [nextPhoto] : current);
-        continue;
-      }
 
       current.push(nextPhoto);
       grouped.set(photo.potId, current);
@@ -337,9 +353,19 @@ class LocalFilePotStore implements PotStore {
     return [...pots].sort((a, b) => b.createdAt - a.createdAt).map((pot) => applyPhotoMode(pot, photoMode));
   }
 
-  async getPot(id: number): Promise<Pot | undefined> {
+  async listPotSummaries(): Promise<PotSummary[]> {
     const data = await this.read();
-    return data.pots.find((pot) => pot.id === id);
+
+    return data.pots.map((pot) => ({
+      id: pot.id,
+      categoryId: pot.categoryId,
+    }));
+  }
+
+  async getPot(id: number, photoMode: PhotoMode = "all"): Promise<Pot | undefined> {
+    const data = await this.read();
+    const pot = data.pots.find((candidate) => candidate.id === id);
+    return pot ? applyPhotoMode(pot, photoMode) : undefined;
   }
 
   async upsertPot(pot: Pot): Promise<Pot> {
@@ -371,7 +397,7 @@ class LocalFilePotStore implements PotStore {
     });
   }
 
-  async addPhotoToPot(id: number, photoDataUrl: string): Promise<Pot | undefined> {
+  async addPhotoToPot(id: number, photoDataUrl: string, thumbnailDataUrl?: string): Promise<Pot | undefined> {
     const existing = await this.getPot(id);
     if (!existing) return undefined;
 
@@ -380,6 +406,7 @@ class LocalFilePotStore implements PotStore {
 
     return this.upsertPot({
       ...existing,
+      thumbnailDataUrl: thumbnailDataUrl || existing.thumbnailDataUrl,
       photos: [
         ...existing.photos,
         {

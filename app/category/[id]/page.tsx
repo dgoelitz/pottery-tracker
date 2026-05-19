@@ -5,29 +5,45 @@ import { use, useEffect, useState } from "react";
 import Header from "../../components/Header";
 import PotCard from "../../components/PotCard";
 import { categories } from "../../data/categories";
-import { getPotsByCategory, Pot } from "../../lib/db";
+import { getCachedPotsByCategory, getPotsByCategory, Pot, prefetchPotById } from "../../lib/db";
 
 export default function CategoryPage({ params }: { params: Promise<{ id: string }> }) {
-  const router = useRouter();
   const unwrappedParams = use(params);
   const categoryId = Number(unwrappedParams.id);
   const category = categories.find((candidate) => candidate.id === categoryId);
 
-  const [pots, setPots] = useState<Pot[]>([]);
+  if (!category) return <p>Category not found</p>;
+
+  return <CategoryContent key={categoryId} categoryId={categoryId} category={category} />;
+}
+
+function CategoryContent({
+  categoryId,
+  category,
+}: {
+  categoryId: number;
+  category: NonNullable<(typeof categories)[number]>;
+}) {
+  const router = useRouter();
+  const [pots, setPots] = useState<Pot[]>(() => getCachedPotsByCategory(categoryId));
+  const [isLoading, setIsLoading] = useState(pots.length === 0);
 
   useEffect(() => {
     let isMounted = true;
 
     void getPotsByCategory(categoryId).then((potsInCategory) => {
-      if (isMounted) setPots(potsInCategory);
+      if (!isMounted) return;
+      setPots(potsInCategory);
+      setIsLoading(false);
+    }).catch((error) => {
+      console.error("Could not load category pots.", error);
+      if (isMounted) setIsLoading(false);
     });
 
     return () => {
       isMounted = false;
     };
   }, [categoryId]);
-
-  if (!category) return <p>Category not found</p>;
 
   return (
     <div>
@@ -39,7 +55,7 @@ export default function CategoryPage({ params }: { params: Promise<{ id: string 
         </p>
 
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-5 lg:grid-cols-4">
-          {pots.length === 0 && (
+          {!isLoading && pots.length === 0 && (
             <p className="col-span-2 rounded-md border border-dashed border-stone-300 bg-white p-6 text-center text-gray-400 sm:col-span-3 lg:col-span-4">
               No pots yet
             </p>
@@ -50,6 +66,7 @@ export default function CategoryPage({ params }: { params: Promise<{ id: string 
               key={pot.id}
               pot={pot}
               onClick={() => router.push(`/pot/${pot.id}?returnTo=${encodeURIComponent(`/category/${categoryId}`)}`)}
+              onPrefetch={() => prefetchPotById(pot.id)}
             />
           ))}
         </div>

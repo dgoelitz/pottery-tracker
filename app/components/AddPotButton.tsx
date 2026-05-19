@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Plus } from "lucide-react";
 import { categories } from "../data/categories";
-import { addPot, fileToPhotoDataUrl, Pot, PotPhoto } from "../lib/db";
+import { addPot, fileToPhotoDataUrls, Pot, PotPhoto } from "../lib/db";
 
 type AddPotButtonProps = {
   onPotAdded?: (pot: Pot) => void;
@@ -18,6 +18,7 @@ export default function AddPotButton({ onPotAdded }: AddPotButtonProps) {
 
       const doesWantPhoto = window.confirm("Adding photo. Cancel to add with title only.");
       const photos: PotPhoto[] = [];
+      let thumbnailDataUrl: string | undefined;
 
       if (doesWantPhoto) {
         const file = await new Promise<File | null>((resolve) => {
@@ -34,9 +35,11 @@ export default function AddPotButton({ onPotAdded }: AddPotButtonProps) {
         });
 
         if (file) {
+          const photoData = await fileToPhotoDataUrls(file);
+          thumbnailDataUrl = photoData.thumbnailDataUrl;
           photos.push({
             stepId: 1,
-            photoDataUrl: await fileToPhotoDataUrl(file),
+            photoDataUrl: photoData.photoDataUrl,
             createdAt: Date.now(),
             contentType: file.type,
           });
@@ -54,6 +57,7 @@ export default function AddPotButton({ onPotAdded }: AddPotButtonProps) {
         title,
         categoryId: categories[0].id,
         photos,
+        thumbnailDataUrl,
         createdAt: Date.now(),
         updatedAt: Date.now(),
       };
